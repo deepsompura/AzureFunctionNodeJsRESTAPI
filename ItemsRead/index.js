@@ -1,16 +1,32 @@
-module.exports = async function (context, req) {
-    context.log('JavaScript HTTP trigger function processed a request.');
+const azure = require('azure-storage');
 
-    if (req.query.name || (req.body && req.body.name)) {
-        context.res = {
-            // status: 200, /* Defaults to 200 */
-            body: "Hello " + (req.query.name || req.body.name)
-        };
+const tableService = azure.createTableService();
+const tableName = "items";
+
+module.exports = function (context, req) {
+    context.log('Start ItemRead');
+
+    const id = req.query.id;
+    if (id) {
+        // return item with RowKey 'id'
+        tableService.retrieveEntity(tableName, 'Partition', id, function (error, result, response) {
+            if (!error) {
+                context.res.status(200).json(response.body);
+            }
+            else {
+                context.res.status(500).json({error : error});
+            }
+        });
     }
     else {
-        context.res = {
-            status: 400,
-            body: "Please pass a name on the query string or in the request body"
-        };
+        // return the top 100 items
+        var query = new azure.TableQuery().top(100);
+        tableService.queryEntities(tableName, query, null, function (error, result, response) {
+            if(!error){
+                context.res.status(200).json(response.body.value);
+            } else {
+                context.res.status(500).json({error : error});
+            }
+        });
     }
 };
